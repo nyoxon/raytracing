@@ -93,10 +93,41 @@ struct Plane {
 
 struct RayTracing {
     origin: Vector3<f32>,
+    forward: Vector3<f32>,
+    right: Vector3<f32>,
+    up: Vector3<f32>,
     distance: f32,
     height: usize,
     width: usize,
     fov: f32,
+}
+
+impl RayTracing {
+    fn new
+    (
+        origin: Vector3<f32>,
+        look_at: Vector3<f32>,
+        up_hint: Vector3<f32>,
+        distance: f32,
+        height: usize,
+        width: usize,
+        fov: f32, 
+    ) -> Self {
+        let forward = (look_at - origin).normalize();
+        let right = forward.cross(&up_hint).normalize();
+        let up = right.cross(&forward).normalize();
+
+        Self {
+            origin,
+            forward,
+            right,
+            up,
+            distance,
+            height,
+            width,
+            fov,
+        }
+    }
 }
 
 impl Intersectable for Plane {
@@ -164,13 +195,12 @@ impl RayTracing {
                     2.0 * pixel_y) * image_plane_height
                     / 2.0;
 
-                let pixel_position = Vector3::new(
-                    pixel_screen_x,
-                    pixel_screen_y,
-                    -self.distance
-                );
+                let pixel_position = self.origin
+                    + self.forward * self.distance
+                    + self.right * pixel_screen_x
+                    + self.up * pixel_screen_y;
 
-                let ray_direction = pixel_position.normalize();
+                let ray_direction = (pixel_position - self.origin).normalize();
                 let ray =  Ray {
                     origin: self.origin,
                     direction: ray_direction,
@@ -332,7 +362,7 @@ impl RayTracing {
 
 fn main() {
     let sphere1 = Sphere {
-        center: Vector3::new(0.0, 0.0, 0.0),
+        center: Vector3::new(0.0, 0.0, -5.0),
         radius: 1.0,
         color: (200.0, 200.0, 200.0),
         reflectivity: 1.0,
@@ -367,13 +397,15 @@ fn main() {
         Box::new(&ground),
     ];
 
-    let ray_tracing = RayTracing {
-        origin: Vector3::new(0.0, 0.0, 5.0),
-        distance: 1.0,
-        height: 600,
-        width: 800,
-        fov: 90.0,
-    };
+    let ray_tracing = RayTracing::new(
+        Vector3::new(0.0, 10.0, 10.0), //origin
+        Vector3::new(0.0, 0.0, -1.0), //look_at
+        Vector3::new(0.0, 1.0, 0.0), //up_hint
+        1.0, // distance
+        600, // height
+        800, // width
+        90.0, // fov
+    );
 
     let ray_directions = ray_tracing.new_render
         (&objects, "output.ppm");
