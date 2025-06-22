@@ -26,6 +26,12 @@ struct Intersection<'a> {
     object: &'a dyn Intersectable
 }
 
+struct LightSource {
+    origin: Vector3<f32>,
+    intensity: (f32, f32, f32),
+    color: (f32, f32, f32),
+}
+
 struct Ray {
     origin: Vector3<f32>,
     direction: Vector3<f32>,
@@ -237,33 +243,58 @@ impl RayTracing {
         }
 
         if let Some(hit) = closest {
-            let light_pos = Vector3::new(-5.0, 5.0, 5.0);
-            let light_dir = (light_pos - hit.point).normalize();
+            let light = LightSource {
+                origin: Vector3::new(-5.0, 5.0, 5.0),
+                intensity: (255.0, 255.0, 255.0),
+                color: (255.0, 0.0, 0.0),
+            };
+
+            let light_dir = (light.origin - hit.point).normalize();
             let normal = hit.normal;
-            let mut intensity = normal.dot(&light_dir).max(0.0);
+            let product = normal.dot(&light_dir).max(0.0);
+
+            let mut intensity = ((light.intensity.0 / 255.0 * product).clamp(0.0, 1.0),
+                (light.intensity.1 / 255.0 * product).clamp(0.0, 1.0),
+                (light.intensity.2 / 255.0 * product).clamp(0.0, 1.0));
+
+            let light_color = ((light.color.0 / 255.0).clamp(0.0, 1.0),
+                (light.color.1 / 255.0).clamp(0.0, 1.0),
+                (light.color.2 / 255.0).clamp(0.0, 1.0)
+            );
 
             let shadow_ray = Ray {
                 origin: hit.point + normal * 1e-3,
                 direction: light_dir,
             };
 
+
+            let base_color = hit.object.get_color();
+
             for obj in objects {
                 if let Some(shadow_hit) = obj.intersect(&shadow_ray) {
                     if shadow_hit.distance > 1e-3 {
-                        intensity = 0.0;
+                        intensity = (0.0, 0.0, 0.0);
                         break;
-                    }
+                    } 
                 }
             }
 
-            let base_color = hit.object.get_color();
-            let reflectivity = hit.object.reflectivity();
+            let mut local_color: (f32, f32, f32);
 
-            let local_color = (
-                (base_color.0 as f32 * intensity) as u8,
-                (base_color.1 as f32 * intensity) as u8,
-                (base_color.2 as f32 * intensity) as u8,
+            local_color = (
+                (base_color.0 as f32 / 255.0 * intensity.0).clamp(0.0, 1.0),
+                (base_color.1 as f32 / 255.0 * intensity.0).clamp(0.0, 1.0),
+                (base_color.2 as f32 / 255.0 * intensity.0).clamp(0.0, 1.0),
             );
+
+            local_color = (
+                (local_color.0.clamp(0.0, 1.0) * light_color.0.clamp(0.0, 1.0) * 255.0),
+                (local_color.1.clamp(0.0, 1.0) * light_color.1.clamp(0.0, 1.0) * 255.0),
+                (local_color.2.clamp(0.0, 1.0) * light.color.2.clamp(0.0, 1.0) * 255.0),
+            );
+
+
+            let reflectivity = hit.object.reflectivity();
 
             if reflectivity > 0.0 {
                 let reflected_dir = self.reflect(
@@ -288,7 +319,9 @@ impl RayTracing {
                 );
             }
 
-            return local_color;
+            return (local_color.0 as u8,
+                local_color.1 as u8,
+                local_color.2 as u8);
         }
 
         (0, 0, 0)
@@ -398,7 +431,7 @@ fn main() {
     ];
 
     let ray_tracing = RayTracing::new(
-        Vector3::new(0.0, 10.0, 10.0), //origin
+        Vector3::new(0.0, 0.0, 5.0), //origin
         Vector3::new(0.0, 0.0, -1.0), //look_at
         Vector3::new(0.0, 1.0, 0.0), //up_hint
         1.0, // distance
