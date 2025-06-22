@@ -246,7 +246,7 @@ impl RayTracing {
             let light = LightSource {
                 origin: Vector3::new(-5.0, 5.0, 5.0),
                 intensity: (255.0, 255.0, 255.0),
-                color: (255.0, 0.0, 0.0),
+                color: (255.0, 0.0, 100.0),
             };
 
             let light_dir = (light.origin - hit.point).normalize();
@@ -279,18 +279,16 @@ impl RayTracing {
                 }
             }
 
-            let mut local_color: (f32, f32, f32);
-
-            local_color = (
+            let local_color = (
                 (base_color.0 as f32 / 255.0 * intensity.0).clamp(0.0, 1.0),
-                (base_color.1 as f32 / 255.0 * intensity.0).clamp(0.0, 1.0),
-                (base_color.2 as f32 / 255.0 * intensity.0).clamp(0.0, 1.0),
+                (base_color.1 as f32 / 255.0 * intensity.1).clamp(0.0, 1.0),
+                (base_color.2 as f32 / 255.0 * intensity.2).clamp(0.0, 1.0),
             );
 
-            local_color = (
-                (local_color.0.clamp(0.0, 1.0) * light_color.0.clamp(0.0, 1.0) * 255.0),
-                (local_color.1.clamp(0.0, 1.0) * light_color.1.clamp(0.0, 1.0) * 255.0),
-                (local_color.2.clamp(0.0, 1.0) * light.color.2.clamp(0.0, 1.0) * 255.0),
+            let local_color = (
+                (local_color.0.clamp(0.0, 1.0) * light_color.0.clamp(0.0, 1.0) * 255.0) as u8,
+                (local_color.1.clamp(0.0, 1.0) * light_color.1.clamp(0.0, 1.0) * 255.0) as u8,
+                (local_color.2.clamp(0.0, 1.0) * light_color.2.clamp(0.0, 1.0) * 255.0) as u8,
             );
 
 
@@ -319,9 +317,7 @@ impl RayTracing {
                 );
             }
 
-            return (local_color.0 as u8,
-                local_color.1 as u8,
-                local_color.2 as u8);
+            return local_color
         }
 
         (0, 0, 0)
